@@ -190,3 +190,4 @@ class QuizView(View):
     @discord.ui.button(label="C️", style=discord.ButtonStyle.success)
     async def c(self, interaction, button):
         await self.handle(interaction, "C")
+
