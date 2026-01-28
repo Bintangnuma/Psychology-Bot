@@ -1,85 +1,61 @@
 import discord
 from discord.ext import commands
-
 from config import BOT_TOKEN
-from logic import (
-    start_quiz,
-    calculate_mbti,
-    format_question,
-    QuizView,
-    user_sessions,
-    QUESTIONS
-)
-
-# =========================
-# BOT SETUP
-# =========================
+from logic import start_quiz, format_question, QuizView, user_sessions, QUESTIONS
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(
-    command_prefix="!",
-    intents=intents
-)
-
-# =========================
-# EVENTS
-# =========================
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"✅ Psychology Bot aktif sebagai {bot.user}")
+    print(f"✅ Bot aktif sebagai {bot.user}")
 
-# =========================
-# COMMANDS
-# =========================
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    uid = message.author.id
+
+    if uid in user_sessions:
+        s = user_sessions[uid]
+
+        if s["step"] == "name":
+            s["name"] = message.content.strip()
+            s["step"] = "age"
+            await message.channel.send("📅 Masukkan **usia** kamu:")
+            return
+
+        if s["step"] == "age":
+            if not message.content.isdigit():
+                await message.channel.send("❌ Usia harus angka.")
+                return
+
+            s["age"] = int(message.content)
+            s["step"] = "quiz"
+
+            await message.channel.send(
+                embed=format_question(QUESTIONS[0], 0, len(QUESTIONS)),
+                view=QuizView(uid)
+            )
+            return
+
+    await bot.process_commands(message)
 
 @bot.command()
 async def quiz(ctx):
     start_quiz(ctx.author.id)
-
-    session = user_sessions[ctx.author.id]
-    question = QUESTIONS[session["index"]]
-
-    await ctx.send(
-        embed=format_question(
-            question,
-            session["index"],
-            len(QUESTIONS)
-        ),
-        view=QuizView(ctx.author.id)
-    )
+    await ctx.send("👤 Silakan masukkan **NAMA** kamu:")
 
 @bot.command()
 async def start(ctx):
-    embed = discord.Embed(
-        title="🧠 Psychology Bot",
-        description="Bot kuis interaktif untuk mengenali kecenderungan MBTI kamu.",
-        color=0x5865F2
+    await ctx.send(
+        "🧠 **Psychology Bot**\n\n"
+        "Gunakan `!quiz` untuk memulai tes MBTI.\n"
+        "Kamu akan diminta **nama**, **usia**, lalu menjawab soal.\n\n"
+        "Hasil bersifat edukatif & reflektif 🌱"
     )
-
-    embed.add_field(
-        name="▶️ !quiz",
-        value="Memulai kuis MBTI (40 soal)",
-        inline=False
-    )
-
-    embed.add_field(
-        name="ℹ️ Catatan",
-        value=(
-            "Hasil kuis ini **bukan diagnosis psikologis**.\n"
-            "Digunakan untuk edukasi dan refleksi diri."
-        ),
-        inline=False
-    )
-
-    embed.set_footer(text="Psychology Bot • Educational Purpose")
-
-    await ctx.send(embed=embed)
-
-# =========================
-# RUN BOT
-# =========================
 
 bot.run(BOT_TOKEN)
